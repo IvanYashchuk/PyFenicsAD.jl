@@ -1,5 +1,5 @@
 include("test_pycall.jl")
-using PyFenicsAD, Test
+# using PyFenicsAD, Test
 
 # @testset "foo" begin
 #     x, y = 5, 7
