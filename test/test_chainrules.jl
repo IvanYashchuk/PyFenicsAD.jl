@@ -29,26 +29,14 @@ end
 templates = (fa.Function(V), fa.Constant(0.0), fa.Constant(0.0))
 inputs = (ones(V.dim()), ones(1) * 0.5, ones(1) * 0.6)
 
-zygote_assemble_fenics(inputs...) =
-    evaluate_primal(assemble_fenics, templates, inputs...)[1]
-
-Zygote.@adjoint function zygote_assemble_fenics(inputs...)
-    pyout = pycall(evaluate_primal, PyObject, assemble_fenics, templates, inputs...)
-    numpy_output, fenics_output, fenics_inputs, tape = [get(pyout, PyObject, i) for i = 0:3]
-
-    function vjp_fun(g)
-        vjp_out = evaluate_pullback(fenics_output, fenics_inputs, tape, g)
-    end
-
-    return get(pyout, 0), vjp_fun
-end
+@register_fem_function(zygote_assemble_fenics, templates, assemble_fenics)
 
 hh(inputs...) = zygote_assemble_fenics(inputs...)
 hh0(x) = hh(x, inputs[2], inputs[3])
 hh1(y) = hh(inputs[1], y, inputs[3])
 hh2(z) = hh(inputs[1], inputs[2], z)
 
-@testset "zygote_assemble_forward" begin
+@testset "chainrules_zygote_assemble_primal" begin
     out = zygote_assemble_fenics(inputs...)
 
     u1 = fa.interpolate(fa.Constant(1.0), V)
@@ -56,7 +44,7 @@ hh2(z) = hh(inputs[1], inputs[2], z)
     @test out[1] == PyCall.convert(Float64, J)
 end
 
-@testset "zygote_assemble_vjp" begin
+@testset "chainrules_zygote_assemble_pullback" begin
     out, vjp_fun = Zygote.pullback(hh, inputs...)
 
     g = ones(size(out))
@@ -98,26 +86,15 @@ end
 templates = (fa.Constant(0.0), fa.Constant(0.0))
 inputs = (ones(1) * 0.5, ones(1) * 0.6)
 
-zygote_solve_fenics(inputs...) = evaluate_primal(solve_fenics, templates, inputs...)[1]
+@register_fem_function(zygote_solve_fenics, templates, solve_fenics)
 
-Zygote.@adjoint function zygote_solve_fenics(inputs...)
-    pyout = pycall(evaluate_primal, PyObject, solve_fenics, templates, inputs...)
-    numpy_output, fenics_output, fenics_inputs, tape = [get(pyout, PyObject, i) for i = 0:3]
-
-    function vjp_fun(g)
-        vjp_out = evaluate_pullback(fenics_output, fenics_inputs, tape, g)
-    end
-
-    return get(pyout, 0), vjp_fun
-end
-
-@testset "zygote_solve_forward" begin
+@testset "chainrules_zygote_solve_primal" begin
     out = zygote_solve_fenics(inputs...)
     u = solve_fenics(fa.Constant(0.5), fa.Constant(0.6))
     @test isapprox(out, to_numpy(u))
 end
 
-@testset "zygote_solve_vjp" begin
+@testset "chainrules_zygote_solve_pullback" begin
     out, vjp_fun = Zygote.pullback(zygote_solve_fenics, inputs...)
     # g = np.ones_like(numpy_output)
     g = ones(size(out))
