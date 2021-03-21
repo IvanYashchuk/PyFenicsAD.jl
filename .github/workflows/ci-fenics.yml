@@ -51,8 +51,6 @@ jobs:
           python -m pip install git+https://github.com/IvanYashchuk/fecr.git@master
 
       # Julia Tasks
-
-      setup-julia doesn't work if run inside docker container
       - uses: julia-actions/setup-julia@v1
         with:
           version: 1.5
