@@ -10,7 +10,6 @@ fecr = pyimport("fecr")
 evaluate_primal = fecr.evaluate_primal
 evaluate_pullback = fecr.evaluate_pullback
 to_numpy = fecr.to_numpy
-from_numpy = fecr.from_numpy
 
 
 mesh = fa.UnitSquareMesh(3, 2)
@@ -99,7 +98,7 @@ inputs = (ones(1) * 0.5, ones(1) * 0.6)
 @testset "solve_forward" begin
     numpy_output, _, _, _ = evaluate_primal(solve_fenics, templates, inputs...)
     u = solve_fenics(fa.Constant(0.5), fa.Constant(0.6))
-    @test isapprox(numpy_output, fenics_to_numpy(u))
+    @test isapprox(numpy_output, to_numpy(u))
 end
 
 @testset "solve_vjp" begin

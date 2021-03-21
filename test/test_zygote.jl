@@ -113,7 +113,7 @@ end
 @testset "zygote_solve_forward" begin
     out = zygote_solve_fenics(inputs...)
     u = solve_fenics(fa.Constant(0.5), fa.Constant(0.6))
-    @test isapprox(out, fenics_to_numpy(u))
+    @test isapprox(out, to_numpy(u))
 end
 
 @testset "zygote_solve_vjp" begin
