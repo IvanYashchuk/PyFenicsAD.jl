@@ -74,7 +74,7 @@ jobs:
 
       - uses: julia-actions/julia-buildpkg@v1
         env:
-          PYTHON: /usr/share/miniconda/envs/test/bin/python # this sets the Python binary directly to build PyCall
+          PYTHON: /usr/share/miniconda/envs/fenicsproject/bin/python # this sets the Python binary directly to build PyCall
 
       # - uses: julia-actions/julia-runtest@v1
       - name: Run Julia tests
