@@ -1,0 +1,86 @@
+name: Firedrake
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+
+jobs:
+
+  test:
+    runs-on: ubuntu-latest
+    container:
+      image: docker://firedrakeproject/firedrake-vanilla:latest
+
+    steps:
+      # This Docker file changes sets USER to firedrake instead of using the default user, so we need to update file permissions for this image to work on GH Actions.
+      # See https://help.github.com/en/actions/reference/virtual-environments-for-github-hosted-runners#docker-container-filesystem
+      # (copied from https://help.github.com/en/actions/migrating-to-github-actions/migrating-from-circleci-to-github-actions)
+      - name: Setup file system permissions
+        run: sudo chmod -R 777 $GITHUB_WORKSPACE /github /__w/_temp
+
+      - uses: actions/checkout@v2
+
+      - name: Python info
+        shell: bash -l {0}
+        run: |
+          source /home/firedrake/firedrake/bin/activate
+          which python
+          python -c "import sys; print(sys.version); print('\n'.join(sys.path))"
+          python -c "from firedrake import *"
+
+      - name: Install dependencies
+        shell: bash -l {0}
+        run: |
+          source /home/firedrake/firedrake/bin/activate
+          python -m pip install --upgrade pip
+          python -m pip install pytest
+          python -m pip install pytest-cov
+          python -m pip install pytest-check
+          python -m pip install coveralls
+          python -m pip install fdm
+          python -m pip install git+https://github.com/dolfin-adjoint/pyadjoint.git@master
+          python -m pip install git+https://github.com/IvanYashchuk/fecr.git@master
+
+      # Julia Tasks
+
+      # setup-julia doesn't work if run inside docker container
+      # - uses: julia-actions/setup-julia@v1
+      #   with:
+      #     version: ${{ matrix.julia_version }}
+      #     arch: ${{ matrix.julia_arch }}
+      - name: Install Julia
+        shell: bash -l {0}
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y wget
+          wget https://julialang-s3.julialang.org/bin/linux/x64/1.5/julia-1.5.4-linux-x86_64.tar.gz
+          tar zxvf julia-1.5.4-linux-x86_64.tar.gz
+          sudo ln -s $PWD/julia-1.5.4/bin/julia /usr/local/bin/julia
+
+      - name: Julia info
+        shell: bash -l {0}
+        run: |
+          julia -e 'using InteractiveUtils; versioninfo()'
+
+      - uses: actions/cache@v2
+        env:
+          cache-name: cache-artifacts
+        with:
+          path: ~/.julia/artifacts
+          key: ${{ runner.os }}-test-${{ env.cache-name }}-${{ hashFiles('**/Project.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-test-${{ env.cache-name }}-
+            ${{ runner.os }}-test-
+            ${{ runner.os }}-
+
+      - uses: julia-actions/julia-buildpkg@v1
+        env:
+          PYTHON: /home/firedrake/firedrake/bin/python # this sets the Python binary directly to build PyCall
+
+      - uses: julia-actions/julia-runtest@v1
+      - uses: julia-actions/julia-processcoverage@v1
+      - uses: codecov/codecov-action@v1
+        with:
+          file: lcov.info
