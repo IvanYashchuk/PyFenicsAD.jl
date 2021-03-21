@@ -54,7 +54,7 @@ jobs:
       # Julia Tasks
       - uses: julia-actions/setup-julia@v1
         with:
-          version: 1.5
+          version: 1.6.0-rc3
           arch: x64
 
       - name: Julia info
