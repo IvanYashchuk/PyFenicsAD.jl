@@ -1,6 +1,6 @@
 module PyFenicsAD
 
-# import Zygote
+import ChainRulesCore
 using PyCall
 
 const fecr = PyNULL()
@@ -21,26 +21,58 @@ end
 
 export fecr, to_numpy, from_numpy, evaluate_primal, evaluate_pullback, evaluate_pushforward
 
-# TODO: Make a macro for wrapping fenics functions
-# function create_zygote_fem_eval(fenics_templates::Tuple{Vararg{PyObject}})::Function
-#     function decorator(fenics_function::Function)::Function
-#         zygote_fem_eval(inputs...) = fem_eval(fenics_function, fenics_templates, inputs...)[1]
+"""
+A convenience macro that creates a julia function and registers forward or reverse rules for the provided FEniCS/Firedrake `fem_function`.
+"""
+macro register_fem_function(julia_function_name, fem_templates, fem_function)
+    name_str = "$julia_function_name"
+    quote
+        function $(esc(julia_function_name))(inputs...)
+            return evaluate_primal($(esc(fem_function)), $(esc(fem_templates)), inputs...)[1]
+        end
 
-#         eval(quote
-#             Zygote.@adjoint function zygote_fem_eval(inputs...)
-#                 pyout = pycall(fem_eval, PyObject, fenics_function, fenics_templates, inputs...)
-#                 numpy_output, fenics_output, fenics_inputs, tape = [get(pyout, PyObject, i) for i in 0:3]
+        function ChainRulesCore.rrule(::typeof($(esc(julia_function_name))), inputs...)
+            pyout = pycall(
+                evaluate_primal,
+                PyObject,
+                $(esc(fem_function)),
+                $(esc(fem_templates)),
+                inputs...,
+            )
+            numpy_output, fem_output, fem_inputs, tape =
+                [get(pyout, PyObject, i) for i = 0:3]
 
-#                 function vjp_fun(g)
-#                     vjp_out = vjp_fem_eval(g, fenics_output, fenics_inputs, tape)
-#                 end
+            # Only single-output functions are supported for now
+            function fem_pullback(g)
+                vjp_out = evaluate_pullback(fem_output, fem_inputs, tape, g)
+                return (ChainRulesCore.NO_FIELDS, vjp_out...)
+            end
+            return get(pyout, 0), fem_pullback
+        end
 
-#                 return get(pyout, 0), vjp_fun
-#             end
-#         end)
-#         return zygote_fem_eval
-#     end
-#     return decorator
-# end
+        function ChainRulesCore.frule(
+            (_, Δinputs),
+            ::typeof($(esc(julia_function_name))),
+            inputs...,
+        )
+            pyout = pycall(
+                evaluate_primal,
+                PyObject,
+                $(esc(fem_function)),
+                $(esc(fem_templates)),
+                inputs...,
+            )
+            numpy_output, fem_output, fem_inputs, tape =
+                [get(pyout, PyObject, i) for i = 0:3]
+
+            ∂numpy_output = evaluate_pushforward(fem_output, fem_inputs, tape, Δinputs)
+            return get(pyout, 0), ∂numpy_output
+        end
+
+        println("Registered FEniCS/Firedrake function with name ", $name_str, "!")
+    end
+end
+
+export @register_fem_function
 
 end # module
