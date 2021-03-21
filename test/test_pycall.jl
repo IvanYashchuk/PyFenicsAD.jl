@@ -1,4 +1,3 @@
-# using PyFenicsAD
 using PyCall, Test, FiniteDifferences
 
 fenics = pyimport("fenics")
@@ -7,11 +6,11 @@ pyadjoint = pyimport("pyadjoint")
 ufl = pyimport("ufl")
 np = pyimport("numpy")
 
-fenics_numpy = pyimport("fenics_numpy")
-fem_eval = fenics_numpy.fem_eval
-vjp_fem_eval = fenics_numpy.vjp_fem_eval
-fenics_to_numpy = fenics_numpy.fenics_to_numpy
-numpy_to_fenics = fenics_numpy.numpy_to_fenics
+fecr = pyimport("fecr")
+evaluate_primal = fecr.evaluate_primal
+evaluate_pullback = fecr.evaluate_pullback
+to_numpy = fecr.to_numpy
+from_numpy = fecr.from_numpy
 
 
 mesh = fa.UnitSquareMesh(3, 2)
@@ -20,7 +19,8 @@ V = fenics.FunctionSpace(mesh, "P", 1)
 function assemble_fenics(u, kappa0, kappa1)
 
     f = fa.Expression(
-        "10*exp(-(pow(x[0] - 0.5, 2) + pow(x[1] - 0.5, 2)) / 0.02)", degree=2
+        "10*exp(-(pow(x[0] - 0.5, 2) + pow(x[1] - 0.5, 2)) / 0.02)",
+        degree = 2,
     )
 
     inner, grad, dx = ufl.inner, ufl.grad, ufl.dx
@@ -34,14 +34,14 @@ end
 templates = (fa.Function(V), fa.Constant(0.0), fa.Constant(0.0))
 inputs = (ones(V.dim()), ones(1) * 0.5, ones(1) * 0.6)
 
-hh(args...) = fem_eval(assemble_fenics, templates, args...)[1]
+hh(args...) = evaluate_primal(assemble_fenics, templates, args...)[1]
 hh0(x) = hh(x, inputs[2], inputs[3])
 hh1(y) = hh(inputs[1], y, inputs[3])
 hh2(z) = hh(inputs[1], inputs[2], z)
 
 @testset "assemble_forward" begin
-    pyout = pycall(fem_eval, PyObject, assemble_fenics, templates, inputs...)
-    numpy_output, fenics_output, fenics_inputs, tape = [get(pyout, PyObject, i) for i in 0:3]
+    pyout = pycall(evaluate_primal, PyObject, assemble_fenics, templates, inputs...)
+    numpy_output, fenics_output, fenics_inputs, tape = [get(pyout, PyObject, i) for i = 0:3]
     @test pybuiltin(:isinstance)(fenics_output, pyadjoint.AdjFloat)
 
     u1 = fa.interpolate(fa.Constant(1.0), V)
@@ -54,11 +54,11 @@ hh2(z) = hh(inputs[1], inputs[2], z)
 end
 
 @testset "assemble_vjp" begin
-    pyout = pycall(fem_eval, PyObject, assemble_fenics, templates, inputs...)
-    numpy_output, fenics_output, fenics_inputs, tape = [get(pyout, PyObject, i) for i in 0:3]
+    pyout = pycall(evaluate_primal, PyObject, assemble_fenics, templates, inputs...)
+    numpy_output, fenics_output, fenics_inputs, tape = [get(pyout, PyObject, i) for i = 0:3]
 
     g = np.ones_like(numpy_output)
-    vjp_out = vjp_fem_eval(g, fenics_output, fenics_inputs, tape)
+    vjp_out = evaluate_pullback(fenics_output, fenics_inputs, tape, g)
 
     fdm = FiniteDifferences.central_fdm(2, 1)
 
@@ -66,9 +66,9 @@ end
     fdm_jac2 = FiniteDifferences.jacobian(fdm, hh1, inputs[2])
     fdm_jac3 = FiniteDifferences.jacobian(fdm, hh2, inputs[3])
 
-    @test isapprox(vjp_out[1], fdm_jac1[1]', atol=1e-5)
-    @test isapprox(vjp_out[2], fdm_jac2[1]', atol=1e-5)
-    @test isapprox(vjp_out[3], fdm_jac3[1]', atol=1e-5)
+    @test isapprox(vjp_out[1], fdm_jac1[1]', atol = 1e-5)
+    @test isapprox(vjp_out[2], fdm_jac2[1]', atol = 1e-5)
+    @test isapprox(vjp_out[3], fdm_jac3[1]', atol = 1e-5)
 end
 
 mesh = fa.UnitSquareMesh(6, 5)
@@ -77,7 +77,8 @@ V = fenics.FunctionSpace(mesh, "P", 1)
 function solve_fenics(kappa0, kappa1)
 
     f = fa.Expression(
-        "10*exp(-(pow(x[0] - 0.5, 2) + pow(x[1] - 0.5, 2)) / 0.02)", degree=2
+        "10*exp(-(pow(x[0] - 0.5, 2) + pow(x[1] - 0.5, 2)) / 0.02)",
+        degree = 2,
     )
 
     u = fa.Function(V)
@@ -87,7 +88,7 @@ function solve_fenics(kappa0, kappa1)
     JJ = 0.5 * inner(kappa0 * grad(u), grad(u)) * dx - kappa1 * f * u * dx
     v = fenics.TestFunction(V)
     F = fenics.derivative(JJ, u, v)
-    fa.solve(F == 0, u, bcs=bcs)
+    fa.solve(F == 0, u, bcs = bcs)
     return u
 end
 
@@ -96,18 +97,17 @@ templates = (fa.Constant(0.0), fa.Constant(0.0))
 inputs = (ones(1) * 0.5, ones(1) * 0.6)
 
 @testset "solve_forward" begin
-    numpy_output, _, _, _ = fem_eval(solve_fenics, templates, inputs...)
+    numpy_output, _, _, _ = evaluate_primal(solve_fenics, templates, inputs...)
     u = solve_fenics(fa.Constant(0.5), fa.Constant(0.6))
     @test isapprox(numpy_output, fenics_to_numpy(u))
 end
 
 @testset "solve_vjp" begin
-    numpy_output, fenics_output, fenics_inputs, tape = fem_eval(
-        solve_fenics, templates, inputs...
-    )
+    numpy_output, fenics_output, fenics_inputs, tape =
+        evaluate_primal(solve_fenics, templates, inputs...)
     # g = np.ones_like(numpy_output)
     g = ones(size(numpy_output))
-    vjp_out = vjp_fem_eval(g, fenics_output, fenics_inputs, tape)
+    vjp_out = evaluate_pullback(fenics_output, fenics_inputs, tape, g)
     @test isapprox(vjp_out[1], [-2.91792642])
     @test isapprox(vjp_out[2], [2.43160535])
 end
