@@ -18,7 +18,7 @@ V = firedrake.FunctionSpace(mesh, "P", 1)
 function assemble_firedrake(u, kappa0, kappa1)
 
     x = firedrake.SpatialCoordinate(mesh)
-    f = x[0]
+    f = x[1]
 
     inner, grad, dx = ufl.inner, ufl.grad, ufl.dx
     J_form = 0.5 * inner(kappa0 * grad(u), grad(u)) * dx - kappa1 * f * u * dx
@@ -76,7 +76,7 @@ V = firedrake.FunctionSpace(mesh, "P", 1)
 function solve_firedrake(kappa0, kappa1)
 
     x = firedrake.SpatialCoordinate(mesh)
-    f = x[0]
+    f = x[1]
 
     u = firedrake.Function(V)
     bcs = [firedrake.DirichletBC(V, firedrake.Constant(0.0), "on_boundary")]
@@ -105,6 +105,6 @@ end
     # g = np.ones_like(numpy_output)
     g = ones(size(numpy_output))
     vjp_out = evaluate_pullback(firedrake_output, firedrake_inputs, tape, g)
-    @test isapprox(vjp_out[1], [-2.91792642])
-    @test isapprox(vjp_out[2], [2.43160535])
+    @test isapprox(vjp_out[1], [-1.13533303])
+    @test isapprox(vjp_out[2], [0.94611086])
 end
