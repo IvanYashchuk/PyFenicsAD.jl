@@ -33,6 +33,7 @@ jobs:
           conda config --add channels conda-forge
           conda create -n fenicsproject -c conda-forge fenics
           conda activate fenicsproject
+          conda install libgcc gmp
           which python
           python -c "from dolfin import *"
           python -c "from fenics import *"
