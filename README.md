@@ -1,4 +1,4 @@
-# PyFenicsAD.jl
+# PyFenicsAD.jl &middot; [![Build FEniCS](https://github.com/ivanyashchuk/PyFenicsAD.jl/workflows/FEniCS/badge.svg)](https://github.com/ivanyashchuk/PyFenicsAD.jl/actions?query=workflow%3AFEniCS+branch%3Amaster) [![codecov](https://codecov.io/gh/IvanYashchuk/PyFenicsAD.jl/branch/master/graph/badge.svg?token=E2QUTNOLYP)](https://codecov.io/gh/IvanYashchuk/PyFenicsAD.jl)
 Automatic differentiation of FEniCS or Firedrake models in Julia
 
 # Installation
