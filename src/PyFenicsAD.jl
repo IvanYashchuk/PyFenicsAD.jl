@@ -1,23 +1,25 @@
 module PyFenicsAD
 
-import Zygote
+# import Zygote
 using PyCall
 
-const fenics_numpy = PyNULL()
-const fem_eval = PyNULL()
-const vjp_fem_eval = PyNULL()
-const fenics_to_numpy = PyNULL()
-const numpy_to_fenics = PyNULL()
+const fecr = PyNULL()
+const to_numpy = PyNULL()
+const from_numpy = PyNULL()
+const evaluate_primal = PyNULL()
+const evaluate_pullback = PyNULL()
+const evaluate_pushforward = PyNULL()
 
 function __init__()
-    copy!(fenics_numpy, pyimport("fenics_numpy"))
-    copy!(fem_eval, fenics_numpy.fem_eval)
-    copy!(vjp_fem_eval, fenics_numpy.vjp_fem_eval)
-    copy!(fenics_to_numpy, fenics_numpy.fenics_to_numpy)
-    copy!(numpy_to_fenics, fenics_numpy.numpy_to_fenics)
+    copy!(fecr, pyimport("fecr"))
+    copy!(to_numpy, fecr.to_numpy)
+    copy!(from_numpy, fecr.from_numpy)
+    copy!(evaluate_primal, fecr.evaluate_primal)
+    copy!(evaluate_pullback, fecr.evaluate_pullback)
+    copy!(evaluate_pushforward, fecr.evaluate_pushforward)
 end
 
-export fem_eval, vjp_fem_eval, fenics_to_numpy, numpy_to_fenics
+export fecr, to_numpy, from_numpy, evaluate_primal, evaluate_pullback, evaluate_pushforward
 
 # TODO: Make a macro for wrapping fenics functions
 # function create_zygote_fem_eval(fenics_templates::Tuple{Vararg{PyObject}})::Function
